@@ -45,6 +45,43 @@ long mesureAudioAntenna(void) {
     return audioAntenna.capacitiveSensor(1);
 }
 
+/*
+raw ADC value
+@return int 0 to 1023
+*/
+int mesureWaveForm(void) {
+    return analogRead(14);
+}
+
+short convertToWaveform(int mesure) {
+    int selection = mesure / 93;
+    switch (selection) {
+        case 0:
+            return WAVEFORM_SINE;
+        case 1:
+            return WAVEFORM_SAWTOOTH;
+        case 2:
+            return WAVEFORM_BANDLIMIT_SAWTOOTH;
+        case 3:
+            return WAVEFORM_SAWTOOTH_REVERSE;
+        case 4:
+            return WAVEFORM_BANDLIMIT_SAWTOOTH_REVERSE;
+        case 5:
+            return WAVEFORM_SQUARE;
+        case 6:
+            return WAVEFORM_BANDLIMIT_SQUARE;
+        case 7:
+            return WAVEFORM_TRIANGLE;
+        case 8:
+            return WAVEFORM_TRIANGLE_VARIABLE;
+        case 9:
+            return WAVEFORM_PULSE;
+        case 10:
+            return WAVEFORM_BANDLIMIT_PULSE;
+        default:
+            return WAVEFORM_SINE;
+    }
+}
 
 /*
 WAVEFORM_SINE
@@ -100,6 +137,15 @@ void loop(void) {
     waveform.amplitude(audioVal);
     #ifdef DEBUG
     Serial.println(audioVal);
+    #endif
+    int waveRaw = mesureWaveForm(); 
+    #ifdef DEBUG
+    Serial.println(waveRaw);
+    #endif
+    short waveForm = convertToWaveform(waveRaw);
+    changeWaveForm(waveForm);
+    #ifdef DEBUG
+    Serial.println(waveForm);
     #endif
     delay(1);
 }

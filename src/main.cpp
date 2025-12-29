@@ -4,8 +4,8 @@
 
 #define DEBUG
 
-#define FREQ_MUMLTIPLY 0.1
-#define AUDIO_LEVEL_MUMLTIPLY 0.0001
+#define FREQ_MULTIPLY 0.1
+#define AUDIO_LEVEL_MULTIPLY 0.0001
 #define AVERAGE_CYCL 10
 
 /*
@@ -30,18 +30,18 @@ AudioSynthWaveform waveform;
 AudioConnection patchCord2(waveform, 0, i2s, 0);
 
 /*
-raw value in time to load capacative freqency antenna
+raw value in time to load capacitive frequency antenna
 @return time in ms
 */
-long mesureFreqAntenna(void) {
+long measureFreqAntenna(void) {
     return freqAntenna.capacitiveSensor(1);
 }
 
 /*
-raw value in time to load capacative audio level antenna
+raw value in time to load capacitive audio level antenna
 @return time in ms
 */
-long mesureAudioAntenna(void) {
+long measureAudioAntenna(void) {
     return audioAntenna.capacitiveSensor(1);
 }
 
@@ -49,12 +49,14 @@ long mesureAudioAntenna(void) {
 raw ADC value
 @return int 0 to 1023
 */
-int mesureWaveForm(void) {
+int measureWaveForm(void) {
     return analogRead(14);
 }
-
-short convertToWaveform(int mesure) {
-    int selection = mesure / 93;
+/*
+calculates based on a value between 0 and 1024 the selected waveform
+*/
+short convertToWaveform(int measure) {
+    int selection = measure / 93;
     switch (selection) {
         case 0:
             return WAVEFORM_SINE;
@@ -101,6 +103,13 @@ WAVEFORM_SAMPLE_HOLD
 void changeWaveForm(short waveForm) {
     waveform.begin(waveForm);
 }
+
+/*
+calculates rolling average based on AVERAGE_CYCL
+*/
+int average(int newVal, int oldVal) {
+    return (newVal + (oldVal * (AVERAGE_CYCL -1))) / AVERAGE_CYCL;
+}
 /*
 capacity on startup in ms
 */
@@ -109,6 +118,19 @@ long freqAntennaOffset = 0;
 capacity on startup in ms
 */
 long audioAntennaOffset = 0;
+/*
+measures and stores base capacity off the antennas
+*/
+void measureAntennaOffsets(void){
+    freqAntennaOffset = measureFreqAntenna();
+    audioAntennaOffset = measureAudioAntenna();
+    delay(1);
+    for (int i = 0; i < AVERAGE_CYCL; i++) {
+        freqAntennaOffset = average(measureFreqAntenna(), freqAntennaOffset);
+        audioAntennaOffset = average(measureAudioAntenna(), audioAntennaOffset);
+        delay(1);
+    }
+}
 /* setup function */
 void setup(void){
     Serial.begin(115200);
@@ -117,8 +139,7 @@ void setup(void){
     #endif
     AudioMemory(24);
     changeWaveForm(WAVEFORM_SINE);
-    freqAntennaOffset = freqAntenna.capacitiveSensor(20);
-    audioAntennaOffset = audioAntenna.capacitiveSensor(20);
+    measureAntennaOffsets();
 }
 
 long freqVal = 0;
@@ -128,17 +149,17 @@ void loop(void) {
     #ifdef DEBUG
     Serial.println("Loop");
     #endif
-    freqVal = (((mesureFreqAntenna() - freqAntennaOffset) * FREQ_MUMLTIPLY) + (freqVal * (AVERAGE_CYCL -1 ))) / AVERAGE_CYCL;
+    freqVal = average(((measureFreqAntenna() - freqAntennaOffset) * FREQ_MULTIPLY), freqVal);
     waveform.frequency(freqVal);
     #ifdef DEBUG
     Serial.println(freqVal);
     #endif
-    audioVal = (((mesureAudioAntenna() - audioAntennaOffset) * AUDIO_LEVEL_MUMLTIPLY) + (audioVal * (AVERAGE_CYCL - 1))) / AVERAGE_CYCL;
+    audioVal = average(((measureAudioAntenna() - audioAntennaOffset) * AUDIO_LEVEL_MULTIPLY), audioVal);
     waveform.amplitude(audioVal);
     #ifdef DEBUG
     Serial.println(audioVal);
     #endif
-    int waveRaw = mesureWaveForm(); 
+    int waveRaw = measureWaveForm();
     #ifdef DEBUG
     Serial.println(waveRaw);
     #endif
